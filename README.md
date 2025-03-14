@@ -1,1 +1,1 @@
-Just open BastionConnect.ps1, a GUI will fire up and allow access to azure resources you have permissions to.
+Just open BastionConnectionManager.ps1, a GUI will fire up and allow RDP/SSH access via native Windows clients to azure VM's you have permissions to.
