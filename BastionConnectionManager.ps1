@@ -1,7 +1,7 @@
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
-# Add code to hide the console window
+# Add code to hide the console window more robustly
 Add-Type -Name Window -Namespace Console -MemberDefinition '
 [DllImport("kernel32.dll")]
 public static extern IntPtr GetConsoleWindow();
@@ -9,14 +9,29 @@ public static extern IntPtr GetConsoleWindow();
 [DllImport("user32.dll")]
 public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
+[DllImport("user32.dll")]
+public static extern bool SetForegroundWindow(IntPtr hWnd);
+
 public static void HideConsoleWindow() {
     IntPtr hWnd = GetConsoleWindow();
     if (hWnd != IntPtr.Zero) {
         ShowWindow(hWnd, 0); // 0 = SW_HIDE
+        // Ensure the console window does not regain focus
+        SetForegroundWindow(IntPtr.Zero);
     }
 }
 '
+
+# Hide the console window immediately
 [Console.Window]::HideConsoleWindow()
+
+# Function to ensure the console remains hidden even if it tries to reappear
+$hideConsoleTimer = New-Object System.Windows.Forms.Timer
+$hideConsoleTimer.Interval = 100  # Check every 100ms
+$hideConsoleTimer.Add_Tick({
+    [Console.Window]::HideConsoleWindow()
+})
+$hideConsoleTimer.Start()
 
 # Create the main form
 $form = New-Object System.Windows.Forms.Form
@@ -516,11 +531,15 @@ $form.Controls.Add($refreshButton)
 
 # Check Azure CLI login before proceeding
 if (-not (Check-AzureLogin)) {
+    $hideConsoleTimer.Stop()
     exit
 }
 
 # Initialize the GUI
 Populate-Subscriptions
 
-# Show the form
+# Show the form and stop the timer when the form is closed
+$form.Add_FormClosed({
+    $hideConsoleTimer.Stop()
+})
 $form.ShowDialog()
